@@ -15,10 +15,18 @@ import java.util.concurrent.TimeUnit;
 class ThreadPoolTest {
 
     public static void main(String[] args) {
-        ThreadPool threadPool = new ThreadPool(2, TimeUnit.SECONDS, 10, 5);
+        ThreadPool threadPool = new ThreadPool(1, TimeUnit.SECONDS, 10, 2,(queue,task)->{
+            log.info("执行拒绝策略..");
+            queue.put(task);
+        });
         for (int i = 0; i < 5; i++) {
             int j = i;
             threadPool.execute(()->{
+                try {
+                    Thread.sleep(5000L);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
                 log.info("任务执行:{}",j);
             });
         }

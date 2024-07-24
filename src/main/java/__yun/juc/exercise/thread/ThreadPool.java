@@ -26,6 +26,7 @@ public class ThreadPool {
     private long timeout;
     // 任务容量
     private int capacity;
+    private RejectPolicy<Runnable> rejectPolicy;
     public void execute(Runnable task){
         // 懒加载
         synchronized (workers) {
@@ -35,20 +36,24 @@ public class ThreadPool {
                 workers.add(worker);
                 worker.start();
             }else{
-                log.info("加入任务队列{}..",task);
-                queue.put(task);
+                queue.tryPut(task,rejectPolicy);
             }
         }
     }
-    public ThreadPool(int coreSize, TimeUnit timeUnit, long timeout,int capacity) {
+    public ThreadPool(int coreSize, TimeUnit timeUnit, long timeout,int capacity,RejectPolicy rejectPolicy) {
         this.coreSize = coreSize;
         this.timeUnit = timeUnit;
         this.timeout = timeout;
         this.capacity = capacity;
         queue = new BlockingQueue<Runnable>(capacity);
+        this.rejectPolicy = rejectPolicy;
         log.info("线程池构造..");
     }
 
+    @FunctionalInterface
+    interface RejectPolicy<T>{
+        void reject(BlockingQueue<T> queue,T task);
+    }
     private class Worker extends Thread{
         private Runnable task;
 

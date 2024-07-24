@@ -1,5 +1,7 @@
 package __yun.juc.exercise.thread;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.TimeUnit;
@@ -13,6 +15,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * @Date: 2024/07/24/8:16
  * @Description:
  */
+@Slf4j
 public class BlockingQueue<T> {
     // 容量
     private int capacity;
@@ -59,6 +62,25 @@ public class BlockingQueue<T> {
             lock.unlock();
         }
     }
+    public boolean put(T t,Long timeout, TimeUnit timeUnit){
+        lock.lock();
+        try {
+            long nanos = timeUnit.toNanos(timeout);
+            while (queue.size() == capacity) {
+                if (nanos <= 0){
+                    return false;
+                }
+                nanos = comsumerWaitSet.awaitNanos(nanos);
+            }
+            queue.addLast(t);
+            producerWaitSet.signal();
+            return true;
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            lock.unlock();
+        }
+    }
     public void put(T t){
         lock.lock();
         try {
@@ -75,5 +97,20 @@ public class BlockingQueue<T> {
     }
     public BlockingQueue(int capacity) {
         this.capacity = capacity;
+    }
+
+    public void tryPut(T task, ThreadPool.RejectPolicy<T> rejectPolicy) {
+        lock.lock();
+        try {
+            if (queue.size() < capacity){
+                log.info("添加任务到队列..");
+                queue.addLast(task);
+                producerWaitSet.signal();
+            }else {
+                rejectPolicy.reject(this,task);
+            }
+        } finally {
+            lock.unlock();
+        }
     }
 }
